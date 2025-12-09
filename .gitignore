@@ -1,0 +1,14 @@
+# macOS: ignore Finder / metadata files
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Finder icons & caches
+Icon?
+.Trashes
+.Spotlight-V100
+
+# Optional: Windows thumbnails/metadata
+Thumbs.db
+Desktop.ini
