@@ -1,0 +1,26 @@
+{{- if and .Values.common.totalInstall .Values.chaos.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: chaos
+  namespace: {{ .Values.namespace }}
+  labels:
+    project: {{ .Values.project }}
+data:
+  chaos: |-
+    #!/bin/sh
+
+    while true; do
+      PODS=$(kubectl -n $BOOKS_NS get po --field-selector=status.phase=Running --selector='app in ({{ .Values.chaos.targetApps }})' -o jsonpath='{.items[*].metadata.name}')
+
+      POD_COUNT=$(echo "${PODS}" | awk -F" " '{print NF}')
+      echo "found ${POD_COUNT} running pods"
+
+      let "RAND = $RANDOM % $POD_COUNT + 1"
+      POD=$(echo $PODS | cut -d' ' -f$RAND)
+
+      kubectl -n $BOOKS_NS delete po/$POD
+
+      sleep 10
+    done
+{{- end }}

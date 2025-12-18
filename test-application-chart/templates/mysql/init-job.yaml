@@ -1,0 +1,33 @@
+{{- if and .Values.common.totalInstall .Values.mysqlInit.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mysql-init
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: mysql-init
+    project: {{ .Values.project }}
+spec:
+  template:
+    metadata:
+      labels:
+        app: mysql-init
+        project: {{ .Values.project }}
+    spec:
+      containers:
+      - name: mysql-init
+        image: "{{ .Values.mysqlInit.image.repository }}:{{ .Values.mysqlInit.image.tag }}"
+        env:
+        - name: DATABASE_URL
+          value: {{ .Values.common.database.url | quote }}
+        command:
+        - "/bin/sh"
+        args:
+        - "-c"
+        - |
+          set -e
+          bundle exec rake db:ready
+          bundle exec rake db:migrate
+          bundle exec rake db:seed
+      restartPolicy: OnFailure
+{{- end }}

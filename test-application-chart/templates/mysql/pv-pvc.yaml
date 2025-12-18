@@ -1,0 +1,32 @@
+{{- if .Values.common.totalInstall }}
+{{- if and .Values.mysql.enabled .Values.mysql.storage.enabled }}
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: mysql
+  labels:
+    type: local
+spec:
+  storageClassName: {{ .Values.mysql.storage.storageClass }}
+  capacity:
+    storage: {{ .Values.mysql.storage.size }}
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "{{ .Values.mysql.storage.hostPath }}"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql
+  namespace: {{ .Values.namespace }}
+spec:
+  storageClassName: {{ .Values.mysql.storage.storageClass }}
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.mysql.storage.size }}
+{{- end }}
+{{- end }}

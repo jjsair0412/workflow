@@ -1,0 +1,97 @@
+project: booksapp
+namespace: sample
+
+common:
+  totalInstall: true
+  serviceType: NodePort
+  image:
+    repository: buoyantio/booksapp
+    pullPolicy: IfNotPresent
+    tag: "v0.0.3"
+  dnsPolicy: ClusterFirst
+  replicas: 1
+  database:
+    url: mysql2://booksapp:booksapp@mysql:3306/booksapp_production
+
+modules:
+  webapp:
+    enabled: true
+    serviceType: 
+    image: {}
+    service:
+      port: 7000
+    env:
+      AUTHORS_SITE: http://authors:7001
+      BOOKS_SITE: http://books:7002
+    replicas: 1
+    
+  authors:
+    enabled: true
+    serviceType: 
+    image: {}
+    service:
+      port: 7001
+    env:
+      BOOKS_SITE: http://books:7002
+      FAILURE_RATE: "0"
+    replicas: 1
+    
+  books:
+    enabled: true
+    serviceType: 
+    image: {}
+    service:
+      port: 7002
+    env:
+      AUTHORS_SITE: http://authors:7001
+    replicas: 1
+
+  traffic:
+    enabled: true
+    serviceType: 
+    isTraffic: true
+    image:
+      repository: buoyantio/booksapp-traffic
+      tag: "v0.0.3"
+    args:
+      - "webapp:7000"
+    replicas: 1
+
+# 랜덤 Pod 제거 카오스테스트 수행
+chaos:
+  enabled: false
+  serviceType: 
+  image:
+    repository: lachlanevenson/k8s-kubectl
+    pullPolicy: IfNotPresent
+    tag: "v1.10.3"
+  replicas: 1
+  targetApps: "authors, books, webapp"
+
+mysql:
+  enabled: true
+  replicas: 1
+  image:
+    repository: mysql
+    pullPolicy: IfNotPresent
+    tag: "5.6"
+  service:
+    port: 3306
+  auth:
+    rootPassword: password
+    database: booksapp_production
+    user: booksapp
+    password: booksapp
+    skipTzinfo: "1"
+  storage:
+    enabled: true
+    size: 1Gi
+    storageClass: manual
+    hostPath: "/tmp/k3dvol"
+
+mysqlInit:
+  enabled: true
+  image:
+    repository: buoyantio/booksapp
+    tag: "v0.0.3"
+

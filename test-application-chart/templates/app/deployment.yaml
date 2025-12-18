@@ -1,0 +1,50 @@
+{{- range $name, $config := .Values.modules }}
+{{- if and $config.enabled $.Values.common.totalInstall }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Values.namespace }}
+  labels:
+    app: {{ $name }}
+    project: {{ $.Values.project }}
+spec:
+  replicas: {{ $config.replicas | default $.Values.common.replicas }}
+  selector:
+    matchLabels:
+      app: {{ $name }}
+  template:
+    metadata:
+      labels:
+        app: {{ $name }}
+        project: {{ $.Values.project }}
+    spec:
+      dnsPolicy: {{ $.Values.common.dnsPolicy }}
+      containers:
+      - name: {{ $name }}
+        image: "{{ $config.image.repository | default $.Values.common.image.repository }}:{{ $config.image.tag | default $.Values.common.image.tag }}"
+        imagePullPolicy: {{ $.Values.common.image.pullPolicy }}
+        {{- if not $config.isTraffic }}
+        ports:
+        - name: service
+          containerPort: {{ $config.service.port }}
+        env:
+        - name: DATABASE_URL
+          value: {{ $.Values.common.database.url }}
+        {{- with $config.env }}
+        {{- range $key, $value := . }}
+        - name: {{ $key }}
+          value: {{ $value | quote }}
+        {{- end }}
+        {{- end }}
+        readinessProbe:
+          httpGet:
+            path: /ping
+            port: {{ $config.service.port }}
+        args: ["prod:{{ $name }}"]
+        {{- else }}
+        args: {{ $config.args | toJson }}
+        {{- end }}
+{{- end }}
+{{- end }}

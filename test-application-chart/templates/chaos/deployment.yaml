@@ -1,0 +1,41 @@
+{{- if and .Values.common.totalInstall .Values.chaos.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chaos
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: chaos
+    project: {{ .Values.project }}
+spec:
+  replicas: {{ .Values.chaos.replicas }}
+  selector:
+    matchLabels:
+      app: chaos
+  template:
+    metadata:
+      labels:
+        app: chaos
+        project: {{ .Values.project }}
+    spec:
+      serviceAccountName: chaos
+      containers:
+      - image: "{{ .Values.chaos.image.repository }}:{{ .Values.chaos.image.tag }}"
+        imagePullPolicy: {{ .Values.chaos.image.pullPolicy }}
+        name: chaos
+        command:
+        - "/data/chaos"
+        env:
+        - name: BOOKS_NS
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        volumeMounts:
+        - name: chaos
+          mountPath: /data
+      volumes:
+      - name: chaos
+        configMap:
+          name: chaos
+          defaultMode: 0744
+{{- end }}

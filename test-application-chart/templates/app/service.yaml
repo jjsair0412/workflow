@@ -1,0 +1,22 @@
+{{- if .Values.common.totalInstall }}
+{{- range $name, $config := .Values.modules }}
+{{- if and $config.enabled (not $config.isTraffic) }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Values.namespace }}
+  labels:
+    app: {{ $name }}
+    project: {{ $.Values.project }}
+spec:
+  selector:
+    app: {{ $name }}
+  type: {{ $config.serviceType | default $.Values.common.serviceType }}
+  ports:
+  - name: service
+    port: {{ $config.service.port }}
+{{- end }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,156 @@
+# Fleet GitOps 배포 설정
+
+defaultNamespace: default
+
+helm:
+  chart: .
+  releaseName: booksapp
+  
+  # values 오버라이드
+  values:
+    project: booksapp
+    namespace: default
+    
+    # 환경별로 다르게 설정할 값들
+    # 기본값, 클러스터별로 오버라이드 가능
+    common:
+      totalInstall: true
+      replicas: 2  
+
+    chaos:
+      enabled: false
+  
+  # valuesFiles는 기본 values.yaml이 자동으로 로드되므로 생략 가능
+  # valuesFiles:
+  #   - ./k8s/helm/sample-app/values.yaml
+  
+  timeoutSeconds: 300
+  waitForJobs: true
+
+# 카나리 배포 - 단계적 롤아웃
+rolloutStrategy:
+  # 전체 클러스터 중 15%만 동시에 업데이트
+  maxUnavailable: 15%
+  
+  # Partition 중 20%만 동시에 업데이트
+  maxUnavailablePartitions: 20%
+  
+  # 명시적 partition이 없는 클러스터는 자동으로 10%씩 그룹화
+  autoPartitionSize: 10%
+  
+  # 배포 파티션 정의
+  partitions:
+    # Canary (개발/테스트 환경)
+    - name: test
+      maxUnavailable: 100%  # 테스트는 한번에 모두 배포
+      clusterSelector:
+        matchLabels:
+          env: test
+    
+    # Staging
+    - name: dev
+      maxUnavailable: 50%  # 개발은 절반씩 배포
+      # cluster 이름으로 선택 가능
+      # clusterName: poc-sample-cluster
+      clusterSelector:
+        matchLabels:
+          env: dev
+    
+    # Production
+    - name: production
+      maxUnavailable: 10% # 프로덕션은 10%씩 배포
+      clusterSelector:
+        matchLabels:
+          env: prod
+
+targetCustomizations:
+  # dev 클러스터
+  - name: dev-cluster
+    # clusterName: poc-sample-cluster
+    clusterSelector:
+      matchLabels:
+        env: dev
+    
+    helm:
+      values:
+        common:
+          totalInstall: true
+
+        # POC는 최소 리소스로
+        modules:
+          webapp:
+            replicas: 1
+          authors:
+            replicas: 1
+          books:
+            replicas: 1
+        
+        chaos:
+          enabled: true  # POC에서는 카오스 테스트 활성화
+        
+        mysql:
+          enabled: true
+          storage:
+            size: 1Gi
+            hostPath: "/tmp/k3dvol"
+        mysqlInit:
+          enabled: true
+  
+  # prod 클러스터 설정
+  - name: prod-cluster
+    clusterSelector:
+      matchLabels:
+        env: prod
+    
+    helm:
+      values:
+        common:
+          totalInstall: false
+          
+        # 프로덕션은 HA 구성
+        modules:
+          webapp:
+            enabled: true
+            replicas: 3
+          authors:
+            enabled: true
+            replicas: 3
+          books:
+            enabled: true
+            replicas: 3
+        
+        mysql:
+          enabled: true
+          storage:
+            size: 10Gi
+            storageClass: fast-ssd
+        mysqlInit:
+          enabled: true
+    
+    # 프로덕션은 Drift 자동 수정 활성화
+    correctDrift:
+      enabled: true
+      force: false
+      keepFailHistory: true
+
+# Diff 비교 시 무시할 필드
+diff:
+  comparePatches:
+    # Kubernetes가 자동으로 추가하는 annotation 무시
+    - apiVersion: apps/v1
+      kind: Deployment
+      operations:
+        - op: remove
+          path: /spec/template/metadata/annotations/cattle.io
+        - op: remove
+          path: /metadata/annotations/kubectl.kubernetes.io
+
+# 수동 승인 모드
+# paused: true  # 주석 해제하면 수동으로 승인해야 배포됨
+
+# 의존성 예시 (다른 Bundle이 먼저 배포되어야 하는 경우)
+# dependsOn:
+#   - name: mysql-operator
+#   - selector:
+#       matchLabels:
+#         app: infrastructure

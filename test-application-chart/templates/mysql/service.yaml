@@ -1,0 +1,17 @@
+{{- if and .Values.common.totalInstall .Values.mysql.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: mysql
+    project: {{ .Values.project }}
+spec:
+  ports:
+  - port: {{ .Values.mysql.service.port }}
+    name: mysql
+  selector:
+    app: mysql
+  clusterIP: None
+{{- end }}
